@@ -1,10 +1,13 @@
+require("dotenv").config();
 const express = require("express");
-import fetch from 'node-fetch'
+import fetch from "node-fetch";
 // const fetch = require("node-fetch");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
 const app = express();
+
+console.log(process.env.BASE_URL, process.env.HASH_KEY);
 
 const HASURA_OPERATION = `
 mutation($username: String!, $email: String, $password: String!, $phone_number: String!,){
@@ -29,12 +32,12 @@ query MyQuery($username: String!) {
     id
     password
   }
-}`
+}`;
 
 const execute = async (query, variables) => {
-  const fetchResponse = await fetch("http://localhost:8080/v1/graphql", {
+  const fetchResponse = await fetch(process.env.BASE_URL, {
     method: "POST",
-    headers: {"x-hasura-admin-secret": "admin"},
+    headers: { "x-hasura-admin-secret": "admin" },
     body: JSON.stringify({
       query: query,
       variables,
@@ -80,7 +83,7 @@ app.post("/signup", async (req, res) => {
     },
   };
 
-  const token = jwt.sign(tokenContents, "ZyPN7XlmiYL52XMj1fCPuqlNIjwUoVKNt");
+  const token = jwt.sign(tokenContents, process.env.HASH_KEY);
 
   // success
   return res.json({
@@ -89,8 +92,7 @@ app.post("/signup", async (req, res) => {
   });
 });
 
-app.post('/signin', async (req, res) => {
-
+app.post("/signin", async (req, res) => {
   // get request input
   const { username, password } = req.body;
   console.log(username, password);
@@ -100,26 +102,26 @@ app.post('/signin', async (req, res) => {
     username,
   });
   if (data.users.length === 0) {
-    return res.status(400).json({"message": "incorrect username or password"});
+    return res.status(400).json({ message: "incorrect username or password" });
   }
   let is_valid_user = await bcrypt.compare(password, data.users[0].password);
   if (!is_valid_user) {
-    return res.status(400).json({"message": "incorrect username or password"});
+    return res.status(400).json({ message: "incorrect username or password" });
   }
-  console.log(data.users)
+  console.log(data.users);
   const tokenContents = {
     username: username,
     iat: Date.now() / 1000,
     iss: "https://myapp.com",
     "https://hasura.io/jwt/claims": {
-      "x-hasura-user-id":`${data.users[0].id}`,
+      "x-hasura-user-id": `${data.users[0].id}`,
       "x-hasura-default-role": "user",
       "x-hasura-allowed-roles": ["user"],
     },
     exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
   };
 
-  const token = jwt.sign(tokenContents, "ZyPN7XlmiYL52XMj1fCPuqlNIjwUoVKNt");
+  const token = jwt.sign(tokenContents, process.env.HASH_KEY);
 
   /*
   // In case of errors:
@@ -130,9 +132,8 @@ app.post('/signin', async (req, res) => {
 
   // success
   return res.json({
-    token: token
-  })
-
+    token: token,
+  });
 });
 
 app.listen(PORT);
